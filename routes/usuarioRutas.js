@@ -120,16 +120,27 @@ router.delete("/usuarios/:id", async (req, res) => {
 // Ruta para registrar medicamentos
 router.post("/mqtt/programar", async (req, res) => {
   try {
-    const respuesta = await usuarioAutorizado(req.cookies.token, req);
+    // Asegúrate de que el usuario esté autenticado (puedes usar una función middleware)
+    const respuesta = await usuarioAutorizado(req.cookies.token, req); // Se extrae el usuario del token
+    
     if (respuesta.status !== 200) {
       return res.status(400).json({ error: "Usuario no autorizado" });
     }
 
-    const usuarioId = req.usuario.id;
+    // Extraemos el usuarioId del token (lo tenemos en req.usuario)
+    const usuarioId = req.usuario.id; 
+
+    // Obtén los datos del medicamento desde el cuerpo de la solicitud
     const { fechaInicio, fechaFin, hora, compartimiento, cantidad, nombre } = req.body;
 
+    // Validación de campos
     if (!fechaInicio || !fechaFin || !hora || !compartimiento || !cantidad || !nombre) {
       return res.status(400).json({ error: "Todos los campos son obligatorios" });
+    }
+
+    // Validar que la cantidad sea un número positivo
+    if (isNaN(cantidad) || cantidad <= 0) {
+      return res.status(400).json({ error: "La cantidad debe ser un número positivo" });
     }
 
     // Validar si el compartimento ya está ocupado
@@ -138,15 +149,34 @@ router.post("/mqtt/programar", async (req, res) => {
       return res.status(400).json({ error: "El compartimento ya está ocupado con un medicamento." });
     }
 
-    const nuevoMedicamento = new Medicamento({ fechaInicio, fechaFin, hora, compartimiento, cantidad, nombre, usuarioId });
+    // Agregar el usuarioId automáticamente
+    const datosMedicamento = { 
+      fechaInicio, 
+      fechaFin, 
+      hora, 
+      compartimiento, 
+      cantidad, 
+      nombre, 
+      usuarioId  // Se agrega el ID del usuario automáticamente
+    };
+
+    // Publicar los datos en MQTT
+    const mqttPromise = publicarMedicamento(datosMedicamento); // Asumiendo que esta función devuelve una promesa
+
+    // Guardar el medicamento en la base de datos
+    const nuevoMedicamento = new Medicamento(datosMedicamento);
     await nuevoMedicamento.save();
 
-    res.status(201).json({ mensaje: "Medicamento guardado correctamente" });
+    // Esperar a que la publicación MQTT se complete antes de enviar la respuesta
+    await mqttPromise;
+
+    res.status(201).json({ mensaje: "Datos enviados a MQTT y guardados correctamente" });
   } catch (error) {
     console.error("Error en /mqtt/programar:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+
 
 // Nueva ruta para obtener los medicamentos del usuario autenticado organizados por compartimiento
 router.get("/medicamentosUsuario", async (req, res) => {

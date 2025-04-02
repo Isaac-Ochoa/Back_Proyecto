@@ -79,7 +79,7 @@ client.on("message", (topic, message) => {
 //  Función para publicar medicamentos en MQTT
 function publicarMedicamento(datos) {
   const mensaje = JSON.stringify(datos);
-  client.publish("dispenser/medicamentos", mensaje, { qos: 1 }, (error) => {
+  client.publish("raspberry/pastillero", mensaje, { qos: 1 }, (error) => {
     if (error) console.error("Error al publicar en MQTT:", error);
     else console.log("Datos de medicamento enviados a MQTT:", mensaje);
   });

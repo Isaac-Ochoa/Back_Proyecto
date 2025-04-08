@@ -67,6 +67,7 @@ router.get("/mqtt/historial", (req, res) => {
   });
 });
 
+/*
 // Ruta para obtener usuarios con sus medicamentos
 router.get("/usuariosConMedicamentos", async (req, res) => {
   try {
@@ -87,7 +88,29 @@ router.get("/usuariosConMedicamentos", async (req, res) => {
         ...usuario.toObject(),
         medicamentos,
       };
+    })); */
+// Ruta para obtener usuarios con sus medicamentos (sin autenticación)
+router.get("/usuariosConMedicamentos", async (req, res) => {
+  try {
+    // Obtener los usuarios de la colección "Youtube" (excluyendo administradores)
+    const usuarios = await Youtube.find({ tipoUsuario: { $ne: "admin" } });
+
+    // Obtener los medicamentos de cada usuario
+    const usuariosConMedicamentos = await Promise.all(usuarios.map(async (usuario) => {
+      // Buscar los medicamentos que corresponden al usuario
+      const medicamentos = await Medicamento.find({ usuarioId: usuario._id });
+      return {
+        ...usuario.toObject(),
+        medicamentos,
+      };
     }));
+
+    res.status(200).json(usuariosConMedicamentos);
+  } catch (error) {
+    console.error("Error obteniendo usuarios y medicamentos:", error);
+    res.status(500).json({ error: "Error al obtener los usuarios y medicamentos" });
+  }
+});
 
     res.status(200).json(usuariosConMedicamentos);
   } catch (error) {
